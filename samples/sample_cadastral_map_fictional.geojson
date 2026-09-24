@@ -1,0 +1,654 @@
+{
+ "type": "FeatureCollection",
+ "name": "Sample map (fictional)",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "110",
+    "village": "Rampur",
+    "district": "Lucknow",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       80.9,
+       26.78
+      ],
+      [
+       80.9008059,
+       26.78
+      ],
+      [
+       80.9008059,
+       26.7808993
+      ],
+      [
+       80.9,
+       26.7808993
+      ],
+      [
+       80.9,
+       26.78
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "111",
+    "village": "Rampur",
+    "district": "Lucknow",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       80.9008059,
+       26.78
+      ],
+      [
+       80.9017125,
+       26.78
+      ],
+      [
+       80.9017125,
+       26.7808993
+      ],
+      [
+       80.9008059,
+       26.7808993
+      ],
+      [
+       80.9008059,
+       26.78
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "112/3",
+    "village": "Rampur",
+    "district": "Lucknow",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       80.9017125,
+       26.78
+      ],
+      [
+       80.9027317,
+       26.78
+      ],
+      [
+       80.9027317,
+       26.7808993
+      ],
+      [
+       80.9017125,
+       26.7808993
+      ],
+      [
+       80.9017125,
+       26.78
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "113",
+    "village": "Rampur",
+    "district": "Lucknow",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       80.9027317,
+       26.78
+      ],
+      [
+       80.9034368,
+       26.78
+      ],
+      [
+       80.9034368,
+       26.7808993
+      ],
+      [
+       80.9027317,
+       26.7808993
+      ],
+      [
+       80.9027317,
+       26.78
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "87",
+    "village": "Rampur",
+    "district": "Lucknow",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       80.9,
+       26.7808993
+      ],
+      [
+       80.9012088,
+       26.7808993
+      ],
+      [
+       80.9012088,
+       26.7817986
+      ],
+      [
+       80.9,
+       26.7817986
+      ],
+      [
+       80.9,
+       26.7808993
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "64/2",
+    "village": "Rampur",
+    "district": "Lucknow",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       80.9012088,
+       26.7808993
+      ],
+      [
+       80.9021155,
+       26.7808993
+      ],
+      [
+       80.9021155,
+       26.7817986
+      ],
+      [
+       80.9012088,
+       26.7817986
+      ],
+      [
+       80.9012088,
+       26.7808993
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "238/2",
+    "village": "Rampur",
+    "district": "Lucknow",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       80.9021155,
+       26.7808993
+      ],
+      [
+       80.9033747,
+       26.7808993
+      ],
+      [
+       80.9033747,
+       26.7817986
+      ],
+      [
+       80.9021155,
+       26.7817986
+      ],
+      [
+       80.9021155,
+       26.7808993
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "239",
+    "village": "Rampur",
+    "district": "Lucknow",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       80.9033747,
+       26.7808993
+      ],
+      [
+       80.9039791,
+       26.7808993
+      ],
+      [
+       80.9039791,
+       26.7817986
+      ],
+      [
+       80.9033747,
+       26.7817986
+      ],
+      [
+       80.9033747,
+       26.7808993
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "23/1",
+    "village": "Kheri",
+    "district": "Mohali",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       76.7,
+       30.65
+      ],
+      [
+       76.7006648,
+       30.65
+      ],
+      [
+       76.7006648,
+       30.6505722
+      ],
+      [
+       76.7,
+       30.6505722
+      ],
+      [
+       76.7,
+       30.65
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "56",
+    "village": "Kheri",
+    "district": "Mohali",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       76.7006648,
+       30.65
+      ],
+      [
+       76.7011353,
+       30.65
+      ],
+      [
+       76.7011353,
+       30.6504043
+      ],
+      [
+       76.7006648,
+       30.6504043
+      ],
+      [
+       76.7006648,
+       30.65
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "57",
+    "village": "Kheri",
+    "district": "Mohali",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       76.7011353,
+       30.65
+      ],
+      [
+       76.7016579,
+       30.65
+      ],
+      [
+       76.7016579,
+       30.6503597
+      ],
+      [
+       76.7011353,
+       30.6503597
+      ],
+      [
+       76.7011353,
+       30.65
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "19/2",
+    "village": "Wadgaon",
+    "district": "Pune",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       73.8,
+       18.47
+      ],
+      [
+       73.8003319,
+       18.47
+      ],
+      [
+       73.8003319,
+       18.470312
+      ],
+      [
+       73.8,
+       18.470312
+      ],
+      [
+       73.8,
+       18.47
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "402/7",
+    "village": "Wadgaon",
+    "district": "Pune",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       73.8003319,
+       18.47
+      ],
+      [
+       73.8005689,
+       18.47
+      ],
+      [
+       73.8005689,
+       18.4702184
+      ],
+      [
+       73.8003319,
+       18.4702184
+      ],
+      [
+       73.8003319,
+       18.47
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "403",
+    "village": "Wadgaon",
+    "district": "Pune",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       73.8005689,
+       18.47
+      ],
+      [
+       73.8008533,
+       18.47
+      ],
+      [
+       73.8008533,
+       18.4702698
+      ],
+      [
+       73.8005689,
+       18.4702698
+      ],
+      [
+       73.8005689,
+       18.47
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "301A",
+    "village": "Thirumalai",
+    "district": "Krishnagiri",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       78.21,
+       12.52
+      ],
+      [
+       78.210737,
+       12.52
+      ],
+      [
+       78.210737,
+       12.5208993
+      ],
+      [
+       78.21,
+       12.5208993
+      ],
+      [
+       78.21,
+       12.52
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "215",
+    "village": "Thirumalai",
+    "district": "Krishnagiri",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       78.210737,
+       12.52
+      ],
+      [
+       78.2113818,
+       12.52
+      ],
+      [
+       78.2113818,
+       12.5207798
+      ],
+      [
+       78.210737,
+       12.5207798
+      ],
+      [
+       78.210737,
+       12.52
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "9",
+    "village": "Chandpur",
+    "district": "Patna",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       85.1,
+       25.5
+      ],
+      [
+       85.1007971,
+       25.5
+      ],
+      [
+       85.1007971,
+       25.5005396
+      ],
+      [
+       85.1,
+       25.5005396
+      ],
+      [
+       85.1,
+       25.5
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "survey_number": "10",
+    "village": "Chandpur",
+    "district": "Patna",
+    "note": "Fictional sample parcel for testing"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       85.1007971,
+       25.5
+      ],
+      [
+       85.1013949,
+       25.5
+      ],
+      [
+       85.1013949,
+       25.5005396
+      ],
+      [
+       85.1007971,
+       25.5005396
+      ],
+      [
+       85.1007971,
+       25.5
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

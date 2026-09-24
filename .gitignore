@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+backend/.venv/
+backend/.env
+*.db
+
+# Uploaded documents
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Editors / OS
+.vscode/settings.json
+.DS_Store
+Thumbs.db
+
+# OCR language models (downloaded by backend/scripts/download_ocr_languages.py)
+backend/tessdata/
+
+# Secrets / local config (never commit real credentials)
+.env
+.env.*
+!.env.example
+**/.env
+*.pem
+*.key
+
+# Local virtual environments, logs and caches
+.venv/
+venv/
+node_modules/
+*.log
+.pytest_cache/
+.claude/
