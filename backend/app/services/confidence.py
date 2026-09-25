@@ -3,7 +3,9 @@
 The score combines evidence that can be checked, not a model's own opinion:
   1. How the value was found: next to its label, on the line after the label,
      or by AI (Claude). AI values must be found in the OCR text ("grounded");
-     values the AI produced that are not in the document score very low.
+     values the AI produced that are not in the document score very low, unless
+     the AI was given the page image (then they are likely OCR corrections and
+     score medium, so an officer checks them).
   2. OCR quality of the exact words that make up the value (Tesseract word
      confidence; 100 for PDFs with a real text layer).
   3. Whether the value has a plausible format for that field.
@@ -31,6 +33,8 @@ METHOD_WEIGHT = {
     "ai_grounded": 0.90,
     "ai_ungrounded": 0.30,
     "ai_classification": 0.65,
+    "ai_vision": 0.70,  # read by AI from a handwritten / damaged page image; nothing independent to check against
+    "ai_image": 0.75,  # read by AI from the page image where the OCR text has it differently (likely an OCR error)
 }
 METHOD_REASON = {
     "label_same_line": "Found right after the label “{label}”",
@@ -38,6 +42,8 @@ METHOD_REASON = {
     "ai_grounded": "Extracted by AI and found in the document text",
     "ai_ungrounded": "Extracted by AI but NOT found in the document text (possible error)",
     "ai_classification": "Document type suggested by AI from the whole text",
+    "ai_vision": "Read by AI directly from the page image (handwriting or poor scan); could not be cross-checked",
+    "ai_image": "Read by AI from the page image; the OCR text reads it differently (possible OCR error), check it",
 }
 
 SURVEY_RE = re.compile(r"^\d+[A-Z]?(/\d+[A-Z]?)*$")
@@ -177,7 +183,9 @@ def build_suggestions(text: str | None, words: list | None, ocr_method: str | No
     """Merge label-matching and AI results into one scored suggestion per field."""
     if not text:
         return {}
-    rule = suggest_fields(text)
+    vision = ocr_method == "ai_vision"
+    # For AI-read pages the text itself comes from the AI, so label matching on it is not an independent check.
+    rule = {} if vision else suggest_fields(text)
     ai = ai_fields or {}
     out: dict[str, dict] = {}
 
@@ -191,10 +199,13 @@ def build_suggestions(text: str | None, words: list | None, ocr_method: str | No
                                "score": s, "reasons": reasons})
         if field in ai:
             a = ai[field]
-            if field == "document_type":
+            if vision:
+                method = "ai_vision"
+            elif field == "document_type":
                 method = "ai_classification"
             else:
-                method = "ai_grounded" if is_grounded(field, a["value"], a.get("evidence", ""), text) else "ai_ungrounded"
+                grounded = is_grounded(field, a["value"], a.get("evidence", ""), text)
+                method = "ai_grounded" if grounded else "ai_image" if a.get("from_image") else "ai_ungrounded"
             s, reasons = score_candidate(field, a["value"], method, None, words, ocr_method)
             candidates.append({"value": a["value"], "source": a.get("evidence") or "(AI)", "method": "ai",
                                "score": s, "reasons": reasons})
@@ -202,6 +213,11 @@ def build_suggestions(text: str | None, words: list | None, ocr_method: str | No
             continue
 
         best = max(candidates, key=lambda c: c["score"])
+        # The AI checked the page image; where it disagrees with label matching on the OCR text,
+        # its reading is more likely right (the disagreement still lowers the score below).
+        image_read = next((c for c in candidates if c["method"] == "ai" and field in ai and ai[field].get("from_image")), None)
+        if image_read is not None and image_read is not best and not values_agree(field, best["value"], image_read["value"]):
+            best = image_read
         score = best["score"]
         reasons = list(best["reasons"])
         sources = [best["method"]]

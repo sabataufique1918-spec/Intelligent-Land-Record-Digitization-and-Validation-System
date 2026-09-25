@@ -10,6 +10,7 @@ const NAV = [
   { to: '/conflicts', label: 'Conflicts', icon: '⚠' },
   { to: '/map', label: 'Cadastral Map', icon: '⌖' },
   { to: '/parcels', label: 'Parcel History', icon: '⧗' },
+  { to: '/training', label: 'Training Data', icon: '✎' },
   { to: '/search', label: 'Record Search', icon: '⌕' },
 ]
 
@@ -31,7 +32,7 @@ export default function Layout() {
           <div className="brand-mark">LR</div>
           <div>
             <div className="brand-title">Land Record DVS</div>
-            <div className="brand-sub">SIH26018 · v0.6</div>
+            <div className="brand-sub">SIH26018 · v0.7</div>
           </div>
         </div>
         <nav>
@@ -49,9 +50,8 @@ export default function Layout() {
           ))}
         </nav>
         <div className="sidebar-foot">
-          v0.6: upload, OCR, confidence scoring, optional Claude AI extraction, rule checks, conflict
-          detection, cadastral map checks, parcel ownership history and officer review. Handwriting
-          recognition is planned.
+          v0.7: OCR with image clean-up, confidence scoring, learning from officer corrections, optional
+          AI checking, conflict, map and ownership-history checks, officer review.
         </div>
       </aside>
 

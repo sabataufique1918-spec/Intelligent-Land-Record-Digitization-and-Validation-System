@@ -14,12 +14,12 @@ PIPELINE_STAGES = [
                "OpenCV cleanup / super-resolution not implemented yet."},
     {"key": "ocr", "name": "Multilingual OCR / HTR", "status": "basic",
      "detail": "Tesseract OCR for printed text in English and 11 Indian languages; PDF text layers "
-               "are read directly. Handwriting recognition is not supported yet."},
+               "are read directly. Handwritten pages are read partly; every word is shown with how sure "
+               "the reader is, and the share of words read clearly is reported."},
     {"key": "layout", "name": "Layout Understanding", "status": "planned",
      "detail": "Not implemented yet."},
     {"key": "extraction", "name": "Field Extraction", "status": "basic",
-     "detail": "Label matching on OCR text. AI extraction with Claude is available but off "
-               "(needs an Anthropic API key)."},
+     "detail": "Label matching on OCR text. AI extraction is available but off."},
     {"key": "validation", "name": "Validation Engine", "status": "basic",
      "detail": "Rule checks (required fields, formats, area range, survey / khata numbers vs OCR text) "
                "and cross-record conflict detection: owner conflicts, duplicates incl. Hindi/English "
@@ -49,11 +49,11 @@ def pipeline_status(ocr_available: bool, ai_enabled: bool = False) -> list[dict]
     stages = [dict(stage) for stage in PIPELINE_STAGES]
     for stage in stages:
         if ai_enabled and stage["key"] == "extraction":
-            stage["detail"] = ("AI extraction with Claude (Anthropic API) plus label matching on OCR text. "
+            stage["detail"] = ("AI extraction plus label matching on OCR text. "
                                "Every value is checked against the document text; officers confirm before saving.")
         if ai_enabled and stage["key"] == "classifier":
             stage["status"] = "basic"
-            stage["detail"] = "Claude suggests the document type from the OCR text; the uploader confirms it."
+            stage["detail"] = "AI suggests the document type from the OCR text; the uploader confirms it."
     if not ocr_available:
         for stage in stages:
             if stage["key"] == "ocr":

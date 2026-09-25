@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import { Alert, IssueList, PageHeader, StatusBadge } from '../components/common.jsx'
 import RecordFields, { EMPTY_FIELDS } from '../components/RecordFields.jsx'
-import { AiToggle, OcrLanguageSelect, OcrMeta, OcrSuggestions, OcrText } from '../components/Ocr.jsx'
+import { ExtractionResult, ReadControls, ReadingProgress, fromPreview } from '../components/Ocr.jsx'
 import { formatBytes } from '../utils.js'
 
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg'
@@ -124,21 +124,10 @@ export default function UploadPage() {
             <StatusBadge status={result.validation_status} />
           </div>
           {result.ocr_status !== 'not_run' && (
-            <>
-              <h3>OCR</h3>
-              {result.ocr_status === 'failed' ? (
-                <Alert>{result.ocr_error}</Alert>
-              ) : (
-                <OcrMeta
-                  confidence={result.ocr_confidence}
-                  method={result.ocr_method}
-                  language={result.ocr_language}
-                  pages={result.ocr_pages}
-                  extractionConfidence={result.extraction_confidence}
-                  aiModel={result.ai_model}
-                />
-              )}
-            </>
+            <p className="x-note">
+              The document’s text is being read in the background. Open the record to see what was found;
+              the rule checks are run again when reading finishes.
+            </p>
           )}
           <h3>Rule check results</h3>
           <IssueList issues={result.validation_issues} />
@@ -214,34 +203,43 @@ export default function UploadPage() {
 
           {file && ocrReady && (
             <div className="ocr-box">
-              <h3>Read text from document (OCR)</h3>
+              <h3>Fill in the details automatically (optional)</h3>
               <p className="muted small">
-                Works on printed text. Handwritten records are not supported yet.
+                The system can read the printed text of this document and suggest values for the record
+                details. You choose which ones to copy into the form, and check them before uploading.
               </p>
-              <div className="ocr-controls">
-                <OcrLanguageSelect status={ocrStatus} value={ocrLang} onChange={setOcrLang} disabled={ocrBusy} />
-                <button type="button" className="btn btn-primary" onClick={runOcr} disabled={ocrBusy}>
-                  {ocrBusy ? 'Reading document…' : 'Run OCR'}
-                </button>
-              </div>
-              <AiToggle status={ocrStatus} value={useAi} onChange={setUseAi} disabled={ocrBusy} />
-              {ocrBusy && <p className="muted small">This can take a few seconds per page (longer with AI).</p>}
-              <Alert>{ocrError}</Alert>
-              {ocrResult?.ai_error && <Alert tone="warning">AI extraction failed: {ocrResult.ai_error} Label matching was used instead.</Alert>}
-              {ocrResult && (
-                <>
-                  <OcrMeta
-                    confidence={ocrResult.confidence}
-                    method={ocrResult.method}
-                    language={ocrResult.language}
-                    pages={ocrResult.pages_processed}
-                    totalPages={ocrResult.total_pages}
-                    extractionConfidence={ocrResult.extraction_confidence}
-                    aiModel={ocrResult.ai_model}
-                  />
-                  <OcrSuggestions suggestions={ocrResult.suggestions} current={fields} onApply={applySuggestions} />
-                  <OcrText text={ocrResult.text} />
-                </>
+              {ocrBusy && <ReadingProgress status="processing" />}
+              {ocrError && (
+                <div className="x-summary x-summary-poor">
+                  <span className="x-icon" aria-hidden="true">✗</span>
+                  <div>
+                    <div className="x-title">The document could not be read</div>
+                    <div className="x-body">{ocrError}</div>
+                  </div>
+                </div>
+              )}
+              {ocrResult && !ocrBusy && (
+                <ExtractionResult
+                  result={fromPreview(ocrResult)}
+                  current={fields}
+                  onApply={applySuggestions}
+                  applyLabel="Copy into the form"
+                  documentUrl={preview}
+                  documentIsPdf={file.type === 'application/pdf' || /\.pdf$/i.test(file.name)}
+                />
+              )}
+              {!ocrBusy && (
+                <ReadControls
+                  status={ocrStatus}
+                  lang={ocrLang}
+                  onLangChange={setOcrLang}
+                  useAi={useAi}
+                  onUseAiChange={setUseAi}
+                  onRun={runOcr}
+                  busy={ocrBusy}
+                  runLabel={ocrResult ? 'Read again' : 'Read document'}
+                  collapsed={!!ocrResult}
+                />
               )}
             </div>
           )}
@@ -254,12 +252,13 @@ export default function UploadPage() {
           {ocrReady && (
             <label className="checkbox">
               <input type="checkbox" checked={saveOcr} onChange={(e) => setSaveOcr(e.target.checked)} />
-              Save the document's OCR text with the record (used for search and number cross-checks)
+              Also read and keep the document’s text with the record (so it can be searched and the numbers
+              you enter can be checked against it)
             </label>
           )}
           <div className="actions-row">
             <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? (ocrReady && saveOcr ? 'Uploading & reading text…' : 'Uploading…') : 'Upload & run rule checks'}
+              {submitting ? 'Uploading…' : 'Upload & run rule checks'}
             </button>
             <button type="button" className="btn btn-ghost" onClick={reset} disabled={submitting}>
               Clear

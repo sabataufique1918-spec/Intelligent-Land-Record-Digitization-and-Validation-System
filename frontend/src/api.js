@@ -57,5 +57,10 @@ export const api = {
   deleteBoundary: (id) => request(`/api/records/${id}/boundary`, { method: 'DELETE' }),
   parcels: (q) => request(`/api/parcels${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   parcelTwin: (recordId) => request(`/api/parcels/by-record/${recordId}`),
+  trainingStats: () => request('/api/training/stats'),
+  recordLines: (id) => request(`/api/records/${id}/lines`),
+  cutLines: (id, language) => request(`/api/records/${id}/lines`, json('POST', { language })),
+  saveLine: (lineId, data) => request(`/api/training/lines/${lineId}`, json('PUT', data)),
+  trainingExportUrl: () => `${BASE}/api/training/export`,
   fileUrl: (id, download = false) => `${BASE}/api/records/${id}/file${download ? '?download=true' : ''}`,
 }

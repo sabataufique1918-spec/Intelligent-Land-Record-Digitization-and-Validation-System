@@ -187,7 +187,12 @@ cd frontend; npm run dev
 | `TESSDATA_DIR` | `tessdata` | Folder with `*.traineddata` language models |
 | `OCR_MAX_PAGES` | `10` | Maximum PDF pages read per document |
 | `OCR_DPI` | `300` | Resolution used to render scanned PDF pages |
+| `OCR_WORKERS` | `2` | Documents OCR'd at the same time in the background |
 | `AI_EXTRACTION_ENABLED` | `false` | Turn on Claude AI extraction (sends OCR text to Anthropic) |
+| `AI_SEND_IMAGES` | `true` | With AI on, also send the page images so Claude can correct OCR misreadings |
+| `AI_PROVIDER` | `anthropic` | `anthropic` (Claude API) or `ollama` (vision model on this computer, see "Local AI") |
+| `OLLAMA_MODEL` | `qwen3-vl:4b` | Ollama model used when `AI_PROVIDER=ollama` |
+| `OLLAMA_URL` | `http://127.0.0.1:11434` | Ollama server address |
 | `ANTHROPIC_API_KEY` | *(not set)* | Anthropic API key used when AI extraction is on |
 | `AI_MODEL` | `claude-opus-5` | Claude model used for extraction |
 | `AI_EFFORT` | `low` | Reasoning effort (`low`/`medium`/`high`/`xhigh`/`max`); raise if messy documents are misread |
@@ -204,13 +209,13 @@ To reset the sample data, drop and recreate the `land_records` database, then re
 | GET | `/api/dashboard/summary` | Counts, breakdowns, recent records, pipeline status |
 | GET | `/api/meta/options` | Document types, area units, statuses, districts |
 | GET | `/api/records?q=&status=&district=&document_type=&page=&page_size=` | List / search records |
-| POST | `/api/records/upload` | Multipart upload (`file` + record fields; `run_ocr=true` and `ocr_language` to OCR on upload) |
+| POST | `/api/records/upload` | Multipart upload (`file` + record fields; `run_ocr=true` and `ocr_language` queue OCR in the background; the record returns with `ocr_status` `queued`) |
 | GET | `/api/records/{id}` | Record detail |
 | PATCH | `/api/records/{id}` | Edit details (re-runs rule checks) |
 | POST | `/api/records/{id}/validate` | Re-run rule checks |
 | PATCH | `/api/records/{id}/status` | Officer decision: `verified`, `rejected` or `pending` |
 | GET | `/api/records/{id}/file` | View / download the stored document |
-| POST | `/api/records/{id}/ocr` | Run / re-run OCR on the stored document (`{"language": "Hindi"}`) |
+| POST | `/api/records/{id}/ocr` | Queue OCR of the stored document (`{"language": "Hindi"}`); returns 202, poll the record until `ocr_status` is no longer `queued` / `processing` |
 | GET | `/api/conflicts?type=&include_dismissed=` | All conflicts, grouped by parcel |
 | GET | `/api/records/{id}/conflicts` | Conflicts involving one record |
 | POST | `/api/conflicts/dismiss` | Mark a conflict as not a conflict (`{"key", "note", "reviewed_by"}`) |
@@ -294,8 +299,24 @@ High ≥ 80, medium 55-79, low < 55. Low-confidence values are not pre-selected 
 3. Restart the backend.
 
 **Privacy:** with AI on, the OCR text of each document (names, survey numbers, etc.) is sent to
-Anthropic's API. Only enable it for data you are permitted to share. Users can untick "Also use AI"
+Anthropic's API, and with `AI_SEND_IMAGES=true` (default) also the scanned page images (up to 5 pages). Only enable it for data you are permitted to share. Users can untick "Also use AI"
 per document. If the API call fails, the app falls back to label matching and shows the error.
+
+### Local AI (no API key, nothing leaves the computer)
+
+Instead of Claude, AI reading can use a vision-language model running on the same computer through
+[Ollama](https://ollama.com). It is free and private, but much less accurate than Claude (especially on
+handwriting) and slow on a small GPU (roughly a minute or more per page on a 4 GB GTX 1650).
+
+```powershell
+winget install Ollama.Ollama
+ollama pull qwen3-vl:4b
+```
+
+Then in `backend/.env`: `AI_EXTRACTION_ENABLED=true` and `AI_PROVIDER=ollama`, and restart the backend.
+The same prompts and JSON output format are used as with Claude, so the field suggestions, confidence
+scores and review screens work the same way. Values read by the local model get the same "read by AI"
+confidence limits, so officers are asked to check them.
 
 ## Cadastral map (GIS) verification
 
@@ -337,3 +358,55 @@ Sample data (fictional): parcel **112/3** was sold by Ramesh Kumar to Anil Verma
 Jamabandi was not updated (mutation pending); parcel **215** was "sold" in 2022 by Srinivas Rao although
 Ravi Teja was the recorded owner (broken chain); parcel **238/2** shows a clean chain across Hindi and
 English records.
+
+## OCR accuracy and image clean-up
+
+Before OCR, each page is checked for skew. Clean, straight pages are read directly (fast path). Other
+pages are cleaned up with OpenCV and read in three versions in parallel:
+background removed (yellowed paper, stains, shadows), background plus table grid lines removed, and
+adaptive threshold for faded ink. The version with the most confidently read text is kept. Skew up to
+±10° is corrected automatically.
+
+Measured on the fictional sample Khatauni and five degraded copies (9 fields each):
+
+| Scan condition | Fields correct before | After | Character error before → after |
+|---|---|---|---|
+| Clean | 9/9 | 9/9 | 17% → 17% |
+| Tilted 4° | 0/9 | 9/9 | 65% → 17% |
+| Yellowed paper, stain, shadow | 0/9 | 9/9 | 100% → 18% |
+| Faded + blurry | 0/9 | 3/9 | 93% → 33% |
+| Low-resolution phone photo | 1/9 | 7/9 | 54% → 48% |
+| All of the above combined | 0/9 | 6/9 | 100% → 27% |
+| **Total** | **10/54** | **43/54** | **72% → 27%** |
+
+Degraded pages take about 2-5 s each (clean pages about 1-2 s). Denoising and CLAHE contrast boosting
+were also tested and made results worse, so they are not used. These numbers come from synthetic
+degradations of one printed sample; accuracy on real scans will differ.
+
+**Handwritten pages:** Tesseract reads printed text only. Pages with average OCR confidence below 50 %
+are marked *poor quality* (likely handwritten or badly damaged) and no field suggestions are made from
+the unreadable text. If AI extraction is enabled, those pages are sent to Claude **as images**; its
+transcription replaces the OCR text and every value it reads is shown with at most medium confidence,
+because it cannot be cross-checked.
+
+**AI with page images (printed pages):** with AI on and `AI_SEND_IMAGES=true`, Claude gets the page
+images together with the OCR text and reads each value from the image, using the OCR text as a hint.
+Values that match the OCR text are scored as grounded; values Claude read differently from the OCR
+(likely OCR errors, e.g. a misread digit) are shown with medium confidence and the reason "the OCR text
+reads it differently", and take precedence over a disagreeing label-matching value. PDFs with a real
+text layer are sent as text only.
+
+**Speed:** OCR runs in background worker threads (`OCR_WORKERS`), so uploads return immediately.
+Scanned PDF pages are read in parallel, and each Tesseract process is limited to one thread
+(`OMP_THREAD_LIMIT=1`) with at most one process per CPU core, which avoids the slowdown of several
+multi-threaded Tesseract processes competing for the same cores. OCR jobs that were running when the
+server stopped are marked *failed* at the next start and can be re-run.
+
+**Second OCR engine (tested, not used):** RapidOCR (PaddleOCR PP-OCRv5 Devanagari models on ONNX Runtime)
+was evaluated against this pipeline on held-out synthetic Hindi land-record text in fonts not used for
+training. Its recognizer alone beat Tesseract on single cropped lines (5.3 % vs 8.0 % character error,
+about 8x faster), but on full pages it did worse: 40 % vs 12 % on slightly tilted pages (its text
+detector missed whole lines), and 8 % vs 6 % on straight pages even when Tesseract found the lines and
+RapidOCR only read them. Choosing per page by confidence also made results worse, because the two
+engines' confidence scores are not comparable. Surya 0.22 was also considered; it now needs a separate
+vLLM / llama.cpp model server and conflicts with this project's Pillow and OpenCV versions.

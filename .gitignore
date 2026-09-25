@@ -37,3 +37,6 @@ node_modules/
 *.log
 .pytest_cache/
 .claude/
+
+# OCR fine-tuning scratch (fonts, generated lines, checkpoints)
+backend/scripts/ocr_finetune/work/

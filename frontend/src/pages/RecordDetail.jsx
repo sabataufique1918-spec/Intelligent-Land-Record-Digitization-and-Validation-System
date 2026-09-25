@@ -5,7 +5,7 @@ import { Alert, IssueList, Loading, PageHeader, StatusBadge } from '../component
 import RecordFields, { EMPTY_FIELDS } from '../components/RecordFields.jsx'
 import ConflictItem from '../components/ConflictItem.jsx'
 import RecordMap from '../components/RecordMap.jsx'
-import { AiToggle, OcrLanguageSelect, OcrMeta, OcrSuggestions, OcrText } from '../components/Ocr.jsx'
+import { ExtractionResult, ReadControls, ReadingProgress, fromRecord } from '../components/Ocr.jsx'
 import { OCR_STATUS, display, formatArea, formatBytes, formatDate } from '../utils.js'
 
 function toForm(record) {
@@ -53,6 +53,23 @@ export default function RecordDetail() {
     api.options().then(setOptions).catch(() => {})
     api.ocrStatus().then(setOcrStatus).catch(() => setOcrStatus({ available: false }))
   }, [id])
+
+  // OCR runs in the background on the server: poll until it has finished.
+  const ocrPending = ['queued', 'processing'].includes(record?.ocr_status)
+  useEffect(() => {
+    if (!ocrPending) return
+    const timer = setInterval(() => {
+      api
+        .getRecord(id)
+        .then((r) => {
+          if (['queued', 'processing'].includes(r.ocr_status)) return
+          setRecord(r)
+          setNotice(r.ocr_status === 'failed' ? '' : 'The document has been read and the rule checks were re-run.')
+        })
+        .catch(() => {})
+    }, 2000)
+    return () => clearInterval(timer)
+  }, [id, ocrPending])
 
   // Reload conflicts whenever the record changes (edit, review, OCR).
   useEffect(() => {
@@ -107,8 +124,16 @@ export default function RecordDetail() {
   function applyOcrSuggestions(values) {
     setForm({ ...toForm(record), ...values })
     setEditing(true)
+    const n = Object.keys(values).length
+    setNotice(`${n} detail${n === 1 ? '' : 's'} copied into the edit form below. Check them against the document, then press Save.`)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  const readDocument = () =>
+    run(
+      () => api.runOcr(id, ocrLang, !!ocrStatus?.ai?.enabled && useAi),
+      'Reading started. The results will appear in “Text from the document” when it finishes.',
+    )
 
   if (error && !record) return <Alert>{error}</Alert>
   if (!record) return <Loading />
@@ -215,46 +240,58 @@ export default function RecordDetail() {
           {record.has_file && (
             <section className="panel">
               <div className="panel-head">
-                <h2>Document text (OCR)</h2>
-                <span className="muted small">{OCR_STATUS[record.ocr_status] || record.ocr_status}</span>
+                <h2>Text from the document</h2>
               </div>
-              {ocrStatus?.available ? (
-                <div className="ocr-controls">
-                  <OcrLanguageSelect status={ocrStatus} value={ocrLang} onChange={setOcrLang} disabled={busy} />
-                  <button
-                    className="btn btn-ghost"
-                    disabled={busy}
-                    onClick={() => run(() => api.runOcr(id, ocrLang, !!ocrStatus?.ai?.enabled && useAi), 'OCR finished and rule checks re-run.')}
-                  >
-                    {busy ? 'Working…' : record.ocr_status === 'not_run' ? 'Run OCR' : 'Re-run OCR'}
-                  </button>
+              {ocrPending && <ReadingProgress status={record.ocr_status} />}
+              {record.ocr_status === 'not_run' && (
+                <p className="x-empty">
+                  The text of this document has not been read yet. Choose the language written on the document
+                  and press <strong>Read document</strong>: the system reads the printed text and suggests values
+                  for the record details.
+                </p>
+              )}
+              {record.ocr_status === 'failed' && (
+                <div className="x-summary x-summary-poor">
+                  <span className="x-icon" aria-hidden="true">✗</span>
+                  <div>
+                    <div className="x-title">Reading the document failed</div>
+                    <div className="x-body">{record.ocr_error} Try again below.</div>
+                  </div>
                 </div>
-              ) : (
-                ocrStatus && <p className="muted">OCR is not available on the server.</p>
               )}
-              {ocrStatus?.available && <AiToggle status={ocrStatus} value={useAi} onChange={setUseAi} disabled={busy} />}
-              {record.ocr_status === 'failed' && <Alert>{record.ocr_error}</Alert>}
-              {record.ai_error && <Alert tone="warning">AI extraction failed: {record.ai_error} Label matching was used instead.</Alert>}
               {['completed', 'no_text'].includes(record.ocr_status) && (
-                <>
-                  <OcrMeta
-                    confidence={record.ocr_confidence}
-                    method={record.ocr_method}
-                    language={record.ocr_language}
-                    pages={record.ocr_pages}
-                    extractionConfidence={record.extraction_confidence}
-                    aiModel={record.ai_model}
-                  />
-                  <p className="muted small">Processed {formatDate(record.ocr_processed_at)}</p>
-                  <OcrSuggestions
-                    suggestions={record.ocr_suggestions}
-                    current={toForm(record)}
-                    onApply={applyOcrSuggestions}
-                    applyLabel="Copy selected into edit form"
-                  />
-                  <OcrText text={record.ocr_text} />
-                </>
+                <ExtractionResult
+                  result={fromRecord(record)}
+                  current={toForm(record)}
+                  onApply={applyOcrSuggestions}
+                  applyLabel="Copy into the record"
+                  documentUrl={api.fileUrl(record.id)}
+                  documentIsPdf={record.file_type === 'pdf'}
+                />
               )}
+              {!ocrPending &&
+                (ocrStatus?.available ? (
+                  <ReadControls
+                    status={ocrStatus}
+                    lang={ocrLang}
+                    onLangChange={setOcrLang}
+                    useAi={useAi}
+                    onUseAiChange={setUseAi}
+                    onRun={readDocument}
+                    busy={busy}
+                    runLabel={record.ocr_status === 'not_run' ? 'Read document' : 'Read again'}
+                    collapsed={['completed', 'no_text'].includes(record.ocr_status)}
+                  >
+                    <p className="small muted">
+                      Text reading keeps making the same mistakes on your documents?{' '}
+                      <Link to={`/records/${record.id}/transcribe`} className="link">
+                        Type in a few lines to train it →
+                      </Link>
+                    </p>
+                  </ReadControls>
+                ) : (
+                  ocrStatus && <p className="muted">Reading documents is not available on the server.</p>
+                ))}
             </section>
           )}
 
@@ -336,7 +373,7 @@ export default function RecordDetail() {
                 <div className="file-meta">
                   <div className="file-name">{record.original_filename}</div>
                   <div className="muted small">
-                    {record.file_type?.toUpperCase()} · {formatBytes(record.file_size)} · OCR: {OCR_STATUS[record.ocr_status] || record.ocr_status}
+                    {record.file_type?.toUpperCase()} · {formatBytes(record.file_size)} · Text: {OCR_STATUS[record.ocr_status] || record.ocr_status}
                   </div>
                 </div>
                 <div className="preview">

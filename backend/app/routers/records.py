@@ -1,7 +1,6 @@
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
@@ -19,8 +18,9 @@ from ..schemas import (
     RecordUpdate,
     StatusUpdate,
 )
-from ..services import ocr
+from ..services import ocr_jobs
 from ..services.storage import file_path, save_upload
+from ..services.learning import record_feedback
 from ..services.validation import validate_with_related
 
 router = APIRouter(prefix="/api", tags=["records"])
@@ -149,17 +149,18 @@ async def upload_record(
         area_unit=_clean(area_unit),
         language=_clean(language),
         remarks=_clean(remarks),
-        ocr_status="not_run",
+        ocr_status="queued" if run_ocr else "not_run",
         **stored,
     )
     db.add(record)
     db.flush()
     assign_record_number(record)
-    if run_ocr:
-        await run_in_threadpool(ocr.apply_to_record, record, ocr_language or language or "English", use_ai)
     validate_with_related(db, record, keep_officer_decision=False)
     db.commit()
     db.refresh(record)
+    # OCR runs in the background; validation and field feedback are redone when it finishes.
+    if run_ocr:
+        ocr_jobs.submit(record.id, ocr_language or language or "English", use_ai, after_upload=True)
     return record
 
 
@@ -174,6 +175,7 @@ def update_record(record_id: int, payload: RecordUpdate, db: Session = Depends(g
     # Data changed, so any previous officer decision no longer applies.
     record.reviewed_by = record.review_note = record.reviewed_at = None
     validate_with_related(db, record, keep_officer_decision=False)
+    record_feedback(db, record, "edit")
     db.commit()
     db.refresh(record)
     return record
@@ -203,6 +205,8 @@ def set_status(record_id: int, payload: StatusUpdate, db: Session = Depends(get_
         record.reviewed_at = datetime.now(timezone.utc)
         # A rejected record no longer takes part in conflicts; refresh it and its related records.
         validate_with_related(db, record, keep_officer_decision=True)
+        if payload.status == "verified":
+            record_feedback(db, record, "verified")
     db.commit()
     db.refresh(record)
     return record
@@ -213,16 +217,17 @@ class OCRRequest(BaseModel):
     use_ai: bool = True
 
 
-@router.post("/records/{record_id}/ocr", response_model=RecordDetailOut)
-async def run_record_ocr(record_id: int, payload: OCRRequest, db: Session = Depends(get_db)):
+@router.post("/records/{record_id}/ocr", response_model=RecordDetailOut, status_code=202)
+def run_record_ocr(record_id: int, payload: OCRRequest, db: Session = Depends(get_db)):
     record = get_record_or_404(db, record_id)
     if not record.stored_filename:
         raise HTTPException(400, "This record has no document to read.")
-    await run_in_threadpool(ocr.apply_to_record, record, payload.language or record.language or "English",
-                            payload.use_ai)
-    validate_with_related(db, record, keep_officer_decision=True)
+    if record.ocr_status in ocr_jobs.PENDING:
+        raise HTTPException(409, "OCR is already running for this record.")
+    record.ocr_status = "queued"
     db.commit()
     db.refresh(record)
+    ocr_jobs.submit(record.id, payload.language or record.language or "English", payload.use_ai)
     return record
 
 

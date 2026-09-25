@@ -89,6 +89,8 @@ class RecordOut(BaseModel):
     ocr_pages: int | None = None
     ocr_error: str | None = None
     ocr_processed_at: datetime | None = None
+    ocr_quality: str | None = None
+    ocr_preprocessing: str | None = None
     validation_status: str
     validation_issues: list[ValidationIssue]
     reviewed_by: str | None
@@ -111,6 +113,7 @@ class FieldSuggestion(BaseModel):
 
 class RecordDetailOut(RecordOut):
     ocr_text: str | None = None
+    ocr_words: list | None = None  # [[word, confidence 0-100], ...] in reading order
     ocr_suggestions: dict[str, FieldSuggestion] = {}
     extraction_confidence: float | None = None
     ai_model: str | None = None
@@ -126,7 +129,10 @@ class OCRResult(BaseModel):
     method: str
     pages_processed: int
     total_pages: int
+    quality: str | None = None
+    preprocessing: str | None = None
     suggestions: dict[str, FieldSuggestion]
+    words: list | None = None  # [[word, confidence 0-100], ...] in reading order
     extraction_confidence: float | None = None
     ai_used: bool = False
     ai_model: str | None = None

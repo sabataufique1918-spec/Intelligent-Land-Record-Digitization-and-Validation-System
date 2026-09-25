@@ -7,9 +7,10 @@ from sqlalchemy import text
 
 from .config import CORS_ORIGINS, RECHECK_ON_STARTUP, SEED_SAMPLE_DATA
 from .database import Base, SessionLocal, add_missing_columns, engine
-from .routers import conflicts, dashboard, gis, ocr, parcels, records
+from .routers import conflicts, dashboard, gis, ocr, parcels, records, training
 from .seed import seed_sample_data
 from .services.gis_layer import seed_sample_layer
+from .services.ocr_jobs import recover_interrupted
 from .services.validation import recheck_all
 
 logger = logging.getLogger("uvicorn.error")
@@ -21,6 +22,10 @@ async def lifespan(app: FastAPI):
     added = add_missing_columns()
     if added:
         logger.info("Added database columns: %s", ", ".join(added))
+    with SessionLocal() as db:
+        interrupted = recover_interrupted(db)
+        if interrupted:
+            logger.warning("%d OCR job(s) were interrupted by the last shutdown and marked as failed.", interrupted)
     if SEED_SAMPLE_DATA:
         with SessionLocal() as db:
             count = seed_sample_data(db)
@@ -39,12 +44,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Land Record Digitization & Validation API",
     description="SIH26018. Upload, storage, Tesseract OCR for printed text, pattern-based field "
-                "suggestions, confidence scoring, optional Claude AI extraction, rule-based checks, "
+                "suggestions, confidence scoring, optional AI extraction, rule-based checks, "
                 "cross-record conflict detection, cadastral map (GIS) checks, parcel ownership timelines "
                 "(digital twin) and officer review. "
                 "Handwriting recognition and government database / real cadastral map integration "
                 "are not implemented yet.",
-    version="0.6.0",
+    version="0.7.0",
     lifespan=lifespan,
 )
 
@@ -62,6 +67,7 @@ app.include_router(ocr.router)
 app.include_router(conflicts.router)
 app.include_router(gis.router)
 app.include_router(parcels.router)
+app.include_router(training.router)
 
 
 @app.get("/api/health", tags=["system"])

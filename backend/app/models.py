@@ -55,6 +55,9 @@ class LandRecord(Base):
     ocr_pages: Mapped[int | None] = mapped_column(Integer)
     ocr_error: Mapped[str | None] = mapped_column(Text)
     ocr_processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # good / fair / poor (poor = likely handwritten or badly damaged), and which image clean-up was used
+    ocr_quality: Mapped[str | None] = mapped_column(String(16))
+    ocr_preprocessing: Mapped[str | None] = mapped_column(String(200))
     # [[word, confidence 0-100], ...] from Tesseract, used for per-field confidence scores.
     ocr_words: Mapped[list | None] = mapped_column(JSON)
     # AI (Claude) extraction result: {field: {"value": ..., "evidence": ...}}
@@ -83,9 +86,14 @@ class LandRecord(Base):
 
     @property
     def ocr_suggestions(self) -> dict:
-        from .services.confidence import build_suggestions
+        from sqlalchemy.orm import object_session
 
-        return build_suggestions(self.ocr_text, self.ocr_words, self.ocr_method, self.ai_fields)
+        from .services.confidence import build_suggestions
+        from .services.learning import apply_learned, learned_corrections
+
+        suggestions = build_suggestions(self.ocr_text, self.ocr_words, self.ocr_method, self.ai_fields)
+        session = object_session(self)
+        return apply_learned(suggestions, learned_corrections(session)) if session else suggestions
 
     @property
     def extraction_confidence(self) -> float | None:
@@ -128,3 +136,44 @@ class CadastralParcel(Base):
     source: Mapped[str] = mapped_column(String(200), index=True)
     properties: Mapped[dict | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FieldFeedback(Base):
+    """What the system suggested for a field vs what the officer finally saved (one row per record + field)."""
+
+    __tablename__ = "field_feedback"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    record_id: Mapped[int] = mapped_column(Integer, index=True)
+    field: Mapped[str] = mapped_column(String(40), index=True)
+    suggested_value: Mapped[str] = mapped_column(String(300))
+    suggested_sources: Mapped[str | None] = mapped_column(String(40))  # "label", "ai", "label+ai", "learned"
+    suggested_confidence: Mapped[int | None] = mapped_column(Integer)
+    final_value: Mapped[str | None] = mapped_column(String(300))
+    accepted: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    ocr_quality: Mapped[str | None] = mapped_column(String(16))
+    event: Mapped[str] = mapped_column(String(20))  # upload / edit / verified
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class TrainingLine(Base):
+    """One text line cut from a document page, with the OCR guess and the officer's correct transcription.
+    Verified lines are exported as <name>.png + <name>.gt.txt pairs for Tesseract fine-tuning (tesstrain)."""
+
+    __tablename__ = "training_lines"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    record_id: Mapped[int] = mapped_column(Integer, index=True)
+    page: Mapped[int] = mapped_column(Integer, default=1)
+    line_no: Mapped[int] = mapped_column(Integer)
+    image_file: Mapped[str] = mapped_column(String(255))
+    bbox: Mapped[list | None] = mapped_column(JSON)
+    language: Mapped[str | None] = mapped_column(String(64))
+    ocr_text: Mapped[str | None] = mapped_column(Text)
+    ocr_confidence: Mapped[float | None] = mapped_column(Float)
+    ground_truth: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)  # pending / verified / skipped
+    handwritten: Mapped[bool] = mapped_column(Boolean, default=False)
+    verified_by: Mapped[str | None] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

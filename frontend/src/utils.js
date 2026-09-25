@@ -41,10 +41,12 @@ export function display(value) {
 }
 
 export const OCR_STATUS = {
-  not_run: 'Not run',
-  completed: 'Text extracted',
+  not_run: 'Not read yet',
+  queued: 'Waiting to be read…',
+  processing: 'Being read…',
+  completed: 'Read',
   no_text: 'No text found',
-  failed: 'Failed',
+  failed: 'Reading failed',
   not_available: 'No document',
 }
 

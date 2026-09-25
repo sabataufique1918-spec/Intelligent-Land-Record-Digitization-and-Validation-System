@@ -120,7 +120,18 @@ def run_rule_checks(db: Session, record: LandRecord) -> list[dict]:
             add("DIFFERS_FROM_DOCUMENT", field, "warning",
                 f"{label} entered as '{entered}' but the document reads '{found['value']}' "
                 f"({found['confidence']}% confidence).")
-        if record.ocr_confidence is not None and record.ocr_confidence < 60:
+        if record.ocr_quality == "poor" and record.ocr_method != "ai_vision":
+            words = record.ocr_words or []
+            clear = sum(1 for _, conf in words if conf >= 80)  # same "read clearly" threshold as the record page
+            share = f"only {round(100 * clear / len(words))}% of the words ({clear} of {len(words)}) were read clearly" \
+                if words else f"the text was read with {record.ocr_confidence or 0:.0f}% confidence"
+            add("OCR_POOR_QUALITY", None, "warning",
+                f"Handwritten or unclear document: {share}. Enter the details from the document.")
+        elif record.ocr_method == "ai_vision":
+            add("AI_READ_HANDWRITING", None, "info",
+                "The text was read by AI directly from the image (handwriting / poor scan). Check every "
+                "value against the document.")
+        elif record.ocr_confidence is not None and record.ocr_confidence < 60:
             add("LOW_OCR_CONFIDENCE", None, "info",
                 f"OCR confidence is low ({record.ocr_confidence:.0f}%); compare the fields with the document manually.")
     elif record.ocr_status == "failed":

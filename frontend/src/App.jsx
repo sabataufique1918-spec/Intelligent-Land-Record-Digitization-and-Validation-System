@@ -10,6 +10,8 @@ import ConflictsPage from './pages/ConflictsPage.jsx'
 import MapPage from './pages/MapPage.jsx'
 import ParcelsPage from './pages/ParcelsPage.jsx'
 import ParcelTwinPage from './pages/ParcelTwinPage.jsx'
+import TrainingPage from './pages/TrainingPage.jsx'
+import TranscribePage from './pages/TranscribePage.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 export default function App() {
@@ -25,6 +27,8 @@ export default function App() {
         <Route path="map" element={<MapPage />} />
         <Route path="parcels" element={<ParcelsPage />} />
         <Route path="parcels/record/:id" element={<ParcelTwinPage />} />
+        <Route path="training" element={<TrainingPage />} />
+        <Route path="records/:id/transcribe" element={<TranscribePage />} />
         <Route path="search" element={<SearchPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>
