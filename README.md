@@ -1,49 +1,159 @@
 # Intelligent Land Record Digitization and Validation System (SIH26018)
 
-Version 0.6 of an officer dashboard for digitizing and validating land records.
+A web application that helps land-revenue officers turn scanned land records (Khatauni, Jamabandi,
+Khasra, 7/12 extracts, sale deeds, mutation registers) into checked, structured digital records. It
+reads the document, suggests the details, scores how sure it is about each one, checks them against
+other records and the cadastral map, and leaves the final decision to an officer.
 
-- **Frontend:** React 19 + Vite 7 (`frontend/`)
-- **Backend:** Python + FastAPI + SQLAlchemy (`backend/`)
-- **Database:** PostgreSQL
+Version 0.7 · React + FastAPI + PostgreSQL · all sample data in this repository is fictional.
 
-## What works in this version
+## The problem
 
-| Feature | Status |
-|---|---|
-| Upload PDF / JPG / PNG (type, content and size checks, stored on disk) | Working |
-| Manual entry of record details (owner, survey no., khata, village, district, area, …) | Working |
-| **Multilingual OCR** of printed text (Tesseract 5) in English, Hindi, Marathi, Punjabi, Bengali, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Urdu. PDFs with a text layer are read directly; scanned PDFs (up to 10 pages) and images are OCR'd | Basic |
-| Field suggestions from OCR text by label matching (e.g. "खसरा संख्या", "Village", "जिल्हा"); the user reviews and applies them | Basic |
-| Survey / khata numbers entered by the user checked against the OCR text | Basic |
-| Search inside OCR text | Working |
-| **Confidence engine**: 0-100 score and "Why?" explanation for every extracted field (OCR word confidence, how the value was found, format check, label/AI agreement). Entered values that differ from a high-confidence document value are flagged | Basic |
-| **Cadastral map (GIS) verification** (Cadastral Map page + map on each record): import a GeoJSON parcel layer; checks whether the survey no. is on the map, recorded area vs map area (>10 % = warning), drawn/uploaded record boundary vs map parcel (<80 % overlap = warning) and boundary overlaps between records of different parcels (error). Draw / edit / upload boundaries on the map | Basic |
-| **Parcel history / digital twin** (Parcel History page): all records of a parcel (Hindi/English matched), its map parcel and boundaries, a dated ownership chain and the derived current owner. Flags broken chains (seller was not the recorded owner), owner changes without a transfer, pending mutations and undated records. Different owners linked by valid transfers become an "Ownership transfer" (info) instead of an owner conflict | Basic |
-| **AI field extraction with Claude** (Anthropic API), incl. document-type suggestion. Every AI value is checked against the document text; values not found there score low. **Off by default**, needs an API key | Built, off by default |
-| Uploaded records list with filters and pagination | Working |
-| Record search (owner, father's name, survey no., khata no., village, tehsil, record no., file name) | Working |
-| Rule-based validation: required fields, survey-number format, area range | Basic |
-| **Cross-record conflict detection** (Conflicts page): owner conflicts, possible duplicates (exact, spelling variant, or Hindi↔English name match), area mismatch after unit conversion, khata mismatch, identical document uploaded twice. Both records are updated, and officers can mark a conflict as "not a conflict" with a note | Basic |
-| Validation status page and officer review (verify / reject / send back, with note) | Working |
-| Dashboard with summary cards, status breakdown, records by district and document type | Working |
-| 12 fictional sample records seeded on first start | Working |
+Land records are the backbone of land administration: property ownership, taxation, land acquisition,
+dispute resolution and infrastructure planning. Across India, a large share of historical records still
+exists as handwritten registers, scanned documents, maps, cadastral records and legacy PDF files.
 
-## Not implemented yet
+Digitizing them by hand is slow and error-prone because the records suffer from poor image quality,
+inconsistent formats, faded text, damaged pages, many regional languages and handwritten annotations.
+Without standardized, accurate digital records it is hard to keep reliable databases, verify ownership,
+connect records to modern land information systems and deliver citizen services. Manual data entry
+also raises costs and introduces inconsistencies.
 
-These modules from the target architecture **do not work yet**. The dashboard marks them as "Planned".
+SIH26018 asks for an AI-powered platform that extracts structured information from scanned land records,
+handwritten documents, maps and legacy PDFs in multiple Indian languages; classifies it into land-record
+fields; validates it; scores its confidence; routes uncertain records to people; learns over time; and
+integrates with LRMS, DILRMP, GIS platforms and government databases.
 
-- Document classifier (document type is picked manually)
-- Image quality enhancement beyond grayscale / auto-contrast / upscaling (no OpenCV deskew, denoise or super-resolution)
-- Handwriting recognition (Tesseract only handles printed text)
-- Layout understanding (tables / regions are not detected; text is read line by line)
-- AI extraction has only been tested against a simulated API response, because no Anthropic API key was available during development
-- Confidence engine
-- Real cadastral maps: only a **fictional sample layer** is included; real state Bhu-Naksha / survey data must be obtained and imported as GeoJSON (WGS84). Other formats (Shapefile, KML, DXF) and map projections are not supported yet
-- PostGIS: geometry is stored as GeoJSON and checked in Python (Shapely); fine for thousands of parcels, PostGIS spatial indexes are needed for state-scale layers
-- Government database integration
-- Ownership history uses only records in this system; it does not query registration (IGRS) or revenue department databases, and partitions / joint ownership shares are not modelled yet
-- Hindi↔English name matching covers Devanagari only (Hindi, Marathi); Tamil, Bengali and other scripts are compared only exactly or by spelling
-- User login and roles
+## What we built
+
+Five core capabilities, each working end to end in this repository:
+
+### 1. Multilingual OCR (with partial handwriting reading)
+- Reads scanned PDFs, JPG and PNG in **12 languages**: English, Hindi, Marathi, Punjabi, Bengali,
+  Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam and Urdu (Tesseract 5). PDFs that already contain text
+  are read directly.
+- **Cleans the image first** when needed: straightens tilted pages, removes yellowed paper, stains and
+  shadows, erases table grid lines and recovers faded ink (OpenCV).
+- A **Hindi model fine-tuned on land-record text** (`hin_landrec`) cut character errors from 11.2 % to
+  1.0 % on held-out synthetic test lines.
+- **Handwriting:** the reader is built for printed text, so on handwritten pages it reads only a small part
+  (about 5 % of words clearly on our test documents). Instead of hiding this, every page shows **what
+  share of the words was read clearly**, and each word is coloured by how sure the reader was.
+- Reading runs in the **background**: an upload returns at once and the page updates itself when done.
+
+### 2. AI field extraction + confidence scoring
+- Finds **13 record fields** (owner, father's / husband's name, previous owner, document date, khasra /
+  survey no., khata no., village, tehsil, district, state, area, area unit, document type) from their
+  labels in Hindi or English (e.g. "खसरा संख्या", "Village", "जिल्हा").
+- **Optional AI checking** compares the values with the page image and can correct OCR misreadings. It can
+  run fully on-premise (a local vision model through Ollama) or through a cloud AI API; it is off by default.
+- Every value gets a **0-100 confidence score with reasons** (how it was found, how clearly its words were
+  read, whether its format is valid, whether two methods agree) and a plain label: *Looks right*,
+  *Please check* or *Unsure*. Unsure values are never pre-selected.
+
+### 3. Cross-record conflict detection
+- Compares each record with all others: **the same parcel with different owners, possible duplicates,
+  area mismatches (after unit conversion), khata mismatches and the same file uploaded twice**.
+- Names are matched across scripts, so "सुरेश कुमार" and "Suresh Kumar" count as the same person.
+- Officers can mark a conflict as "not a problem" with a note.
+
+### 4. Cadastral map / GIS verification
+- Imports a cadastral parcel layer (GeoJSON) and shows it on a map (Leaflet).
+- Checks whether the record's survey number exists on the map, whether the recorded area matches the map
+  area, whether a drawn or uploaded boundary matches the map parcel, and whether boundaries of different
+  parcels overlap (Shapely).
+
+### 5. Historical land-ownership timeline (digital twin)
+- Brings together every record about one parcel, its map parcel and boundaries into a **dated ownership
+  chain** and derives the current owner.
+- Flags broken chains (the seller was not the recorded owner), owner changes without a transfer document,
+  pending mutations and undated records.
+
+Around these: document upload, an officer review workflow (verify / reject / send back with a note), a
+dashboard, search, a validation queue, and a **learning loop**: officers' corrections measure accuracy per
+field and fix repeated errors automatically, and lines they type in become training data for fine-tuning
+the OCR.
+
+## What happens to a document
+
+```mermaid
+flowchart TD
+    A[Officer uploads a scan<br/>PDF / JPG / PNG] --> B[Stored with a SHA-256 fingerprint<br/>record created, reading queued]
+    B --> C{PDF with a text layer?}
+    C -- yes --> E[Text taken directly]
+    C -- no --> D[Image clean-up if needed<br/>deskew · stains · table lines · faded ink]
+    D --> F[OCR in 12 languages<br/>text + confidence of every word]
+    E --> G[Field extraction<br/>13 fields from Hindi / English labels<br/>+ optional AI check against the image]
+    F --> G
+    G --> H[Confidence engine<br/>0-100 per field + reasons<br/>share of words read clearly]
+    H --> I[Validation<br/>rules · cross-record conflicts · GIS map checks]
+    I --> J[Digital twin<br/>parcel ownership timeline]
+    J --> K[Officer review<br/>copy values · verify / reject]
+    K --> L[Learning<br/>accuracy per field · auto-corrections · OCR training data]
+```
+
+1. **Upload.** The file is checked (type, content, size up to 20 MB), stored, and fingerprinted so the same
+   document uploaded twice is caught. The upload returns immediately.
+2. **Read.** A background worker reads the pages (in parallel), cleaning up poor scans first. The text and
+   the confidence of every word are saved.
+3. **Extract and score.** Field values are found and scored; the page shows a verdict such as
+   "9 details found: all look right" or "Handwritten or unclear page: 5 % of the words read clearly".
+4. **Validate.** Rule checks, conflict detection and map checks run; problems are listed on the record.
+5. **Review.** The officer sees each suggested value with its certainty, the text coloured by confidence and
+   the document side by side, copies the values they accept, and verifies or rejects the record.
+6. **Learn.** The officer's corrections are stored to measure accuracy and improve later suggestions.
+
+## Expected solution vs this project
+
+| Expected in SIH26018 | Status | In this project |
+|---|---|---|
+| Multilingual document recognition | Built | 12 Indian languages for printed text; fine-tuned Hindi model |
+| Printed **and handwritten** text | Partial | Printed text works; handwriting is read only partly, and the share read clearly is shown. Real handwriting recognition is future work |
+| Extraction from scanned PDFs, images, historical documents | Built | Scanned and text PDFs (up to 10 pages) and images, with image clean-up |
+| Classification into predefined fields | Partial | 13 fields incl. owner, khasra / survey no., khata no., area, village, tehsil, district. Land classification, mutation and registration details are not extracted yet |
+| Validation: business rules, duplicate detection | Built | Required fields, formats, area range, duplicates, owner / area / khata conflicts, identical files |
+| Cross-database verification | Not yet | Checks run against records inside this system; no government database connection |
+| Confidence scoring, uncertain fields flagged | Built | 0-100 per field with reasons; "Unsure" values not pre-selected |
+| Human-assisted verification for low-confidence records | Built | Review workflow, validation queue, side-by-side view with the document |
+| Learning that improves accuracy over time | Partial | Accuracy per field, automatic correction of repeated errors, OCR training data export and fine-tuning script; retraining is a manual step |
+| Integration with GIS platforms and cadastral maps | Partial | GeoJSON cadastral layers with map checks; a fictional sample layer is included |
+| Integration with LRMS / DILRMP | Not yet | A REST API exists that such systems could call |
+| Secure repository with metadata and audit trail | Partial | Documents stored with type, size and fingerprint; reviewer, time and note recorded for each decision. No full audit log yet |
+| Dashboards: documents processed, validation status, pending verification, errors, district-wise progress | Partial | Summary cards, status breakdown, records by district and document type, conflicts, extraction accuracy per field. State-wise progress not yet |
+| APIs for government applications | Built | REST API with interactive documentation at `/docs` |
+| Role-based access control | Not yet | No login or roles yet |
+
+## Component-wise technology
+
+| Component | Technology | What it does here |
+|---|---|---|
+| Web interface | React 19, React Router 7, Vite 7 | Upload, review, dashboard, conflicts, map, parcel history, training pages |
+| Maps | Leaflet, Leaflet-Geoman, OpenStreetMap | Cadastral map view; drawing and editing parcel boundaries |
+| API | Python, FastAPI, Uvicorn | REST endpoints for records, OCR, conflicts, GIS, parcels, training, dashboard |
+| Background processing | Python thread-pool job queue | Reads documents after upload without blocking the user |
+| Database | PostgreSQL, SQLAlchemy 2, psycopg 3 | Records, text and word confidences, issues, feedback, map layers |
+| Document storage | File system + SHA-256 | Uploaded files and duplicate-file detection |
+| OCR | Tesseract 5 (LSTM), pytesseract, PyMuPDF | Reading scanned pages in 12 languages; reading PDF text layers |
+| OCR fine-tuning | tesstrain / lstmtraining | Land-record Hindi model `hin_landrec` |
+| Image processing | OpenCV, NumPy, Pillow | Deskew, background and stain removal, table-line removal, faded ink |
+| Field extraction | Label matching (Python), optional vision-language AI (Ollama or cloud API) | 13 record fields; AI checks values against the page image |
+| Confidence engine | Python rules | 0-100 score with reasons per field; share of words read clearly |
+| Conflict detection and name matching | Python, difflib, phonetic key | Duplicates and conflicts; Hindi-English name matching |
+| GIS checks | Shapely, GeoJSON | Area, boundary and overlap checks against the cadastral map |
+| Learning | Feedback store, training-line export | Accuracy tracking, automatic corrections, OCR training data |
+
+More detail on the approach and architecture: [docs/SIH26018_Technical_Approach.pdf](docs/SIH26018_Technical_Approach.pdf).
+
+## Known limitations
+
+- Handwritten pages are read only partly; officers type those details in.
+- Only a **fictional** sample cadastral layer is included; real Bhu-Naksha / survey data must be imported
+  as GeoJSON (WGS84). Shapefile, KML and DXF are not supported yet.
+- No connection to LRMS, DILRMP, registration (IGRS) or revenue-department databases; ownership history
+  uses only records in this system.
+- Hindi-English name matching covers Devanagari (Hindi, Marathi) only.
+- No user login or roles yet.
+- Geometry is checked in Python (Shapely); state-scale map layers would need PostGIS spatial indexes.
 
 ## Project structure
 
